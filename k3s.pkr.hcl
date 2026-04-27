@@ -5,6 +5,20 @@ locals {
   architecture   = "arm64"
 }
 
+# Always pick the newest Canonical Noble 24.04 arm64 image at build time
+# instead of pinning to a dated snapshot. This way every bake starts from
+# a fresh, fully-patched base.
+data "amazon-ami" "ubuntu_noble_arm64" {
+  filters = {
+    name                = "ubuntu/images/hvm-ssd-gp3/ubuntu-${local.ubuntu_release}-${local.architecture}-server-*"
+    root-device-type    = "ebs"
+    virtualization-type = "hvm"
+  }
+  owners      = [var.source_ami_owner]
+  most_recent = true
+  region      = var.region
+}
+
 source "amazon-ebs" "k3s" {
   region        = var.region
   instance_type = var.instance_type
