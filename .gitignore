@@ -60,6 +60,15 @@ terraform.rc
 *.bak
 *.backup
 
+############### Packer ###############
+packer_cache/
+*.box
+manifest.json
+
+# Packer var files may contain sensitive values
+*.pkrvars.hcl
+!example.pkrvars.hcl
+
 ############### Golang ###############
 # Binaries for programs and plugins
 *.exe
