@@ -20,9 +20,12 @@ data "amazon-ami" "ubuntu_noble_arm64" {
 }
 
 source "amazon-ebs" "k3s" {
-  region        = var.region
-  instance_type = var.instance_type
-  ssh_username  = var.ssh_username
+  region                      = var.region
+  instance_type               = var.instance_type
+  ssh_username                = var.ssh_username
+  vpc_id                      = var.vpc_id
+  subnet_id                   = var.subnet_id
+  associate_public_ip_address = var.associate_public_ip_address
 
   source_ami      = data.amazon-ami.ubuntu_noble_arm64.id
   ami_name        = local.ami_name
