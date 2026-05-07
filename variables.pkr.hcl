@@ -62,8 +62,7 @@ variable "subnet_id" {
   description = "Subnet ID for the build instance. Must have a route to the internet (public subnet, or private with NAT)."
 }
 
-variable "associate_public_ip_address" {
-  type        = bool
-  description = "Whether to assign a public IP to the build instance. Set true for public subnets, false for private subnets with NAT."
-  default     = true
+variable "iam_instance_profile" {
+  type        = string
+  description = "IAM instance profile attached to the build instance. Must include AmazonSSMManagedInstanceCore. Created in red-infra as PackerBuildRole."
 }
