@@ -75,5 +75,25 @@ build {
   name    = "red-k3s"
   sources = ["source.amazon-ebs.k3s"]
 
-  # Phase 1 skeleton only — provisioners land in Phase 2.
+  provisioner "shell" {
+    script          = "scripts/00-wait-cloud-init.sh"
+    execute_command = "sudo -E bash '{{ .Path }}'"
+  }
+
+  provisioner "shell" {
+    script          = "scripts/10-apt-baseline.sh"
+    execute_command = "sudo -E bash '{{ .Path }}'"
+    # apt can take a few minutes after a fresh release
+    timeout = "15m"
+  }
+
+  provisioner "shell" {
+    script          = "scripts/20-system-tuning.sh"
+    execute_command = "sudo -E bash '{{ .Path }}'"
+  }
+
+  provisioner "shell" {
+    script          = "scripts/99-cleanup.sh"
+    execute_command = "sudo -E bash '{{ .Path }}'"
+  }
 }
