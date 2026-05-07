@@ -88,6 +88,11 @@ build {
   }
 
   provisioner "shell" {
+    script          = "scripts/15-install-ssm-agent.sh"
+    execute_command = "sudo -E bash '{{ .Path }}'"
+  }
+
+  provisioner "shell" {
     script          = "scripts/20-system-tuning.sh"
     execute_command = "sudo -E bash '{{ .Path }}'"
   }
