@@ -5,6 +5,8 @@ vpc_id    = "vpc-xxxxxxxxxxxxxxxxx"
 subnet_id = "subnet-xxxxxxxxxxxxxxxxx"
 
 iam_instance_profile = "PackerBuildRole"
+# Network resources to get around this cost money :(
+associate_public_ip_address = true
 
 # Override any defaults from variables.pkr.hcl here:
 # k3s_version          = "v1.34.6+k3s1"
