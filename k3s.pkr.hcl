@@ -24,7 +24,7 @@ source "amazon-ebs" "k3s" {
   instance_type               = var.instance_type
   vpc_id                      = var.vpc_id
   subnet_id                   = var.subnet_id
-  associate_public_ip_address = false
+  associate_public_ip_address = var.associate_public_ip_address
 
   iam_instance_profile = var.iam_instance_profile
   communicator         = "ssh"
