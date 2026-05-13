@@ -102,6 +102,14 @@ build {
   }
 
   provisioner "shell" {
+    script          = "scripts/30-install-k3s.sh"
+    execute_command = "sudo -E bash '{{ .Path }}'"
+    environment_vars = [
+      "K3S_VERSION=${var.k3s_version}",
+    ]
+  }
+
+  provisioner "shell" {
     script          = "scripts/99-cleanup.sh"
     execute_command = "sudo -E bash '{{ .Path }}'"
   }
