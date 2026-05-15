@@ -103,7 +103,7 @@ build {
 
   provisioner "shell" {
     script          = "scripts/30-install-k3s.sh"
-    execute_command = "sudo -E bash '{{ .Path }}'"
+    execute_command = "{{.Vars}} sudo --preserve-env=K3S_VERSION bash '{{ .Path }}'"
     environment_vars = [
       "K3S_VERSION=${var.k3s_version}",
     ]
