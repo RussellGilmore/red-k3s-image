@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+#
+# on-cert-renewal — invoked when the K3s API cert is renewed by cert-manager.
+# This is hooked up via a systemd path unit watching the secret on disk
+# (since cert-manager updates the Secret resource, which K3s itself doesn't
+# expose to systemd directly, the path unit watches the rendered file in
+# /etc/k3s-bootstrap/last-cert-fingerprint instead — written by the
+# bootstrap on cert issuance and updates).
+#
+# For now, this is a thin wrapper around rotate-k3s-ca that adds logging
+# for traceability.
+#
+set -euo pipefail
+
+LOG_FILE="/var/log/k3s-cert-renewal.log"
+
+{
+  echo "==== $(date -u +%FT%TZ) cert renewal hook fired ===="
+  /usr/local/bin/rotate-k3s-ca
+  echo "==== $(date -u +%FT%TZ) cert renewal hook complete ===="
+} >> "${LOG_FILE}" 2>&1
