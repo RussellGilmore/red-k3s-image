@@ -119,7 +119,7 @@ build {
     execute_command = "{{.Vars}} sudo --preserve-env=CERT_MANAGER_VERSION,HELM_VERSION bash '{{ .Path }}'"
     environment_vars = [
       "CERT_MANAGER_VERSION=${var.cert_manager_version}",
-      "HELM_VERSION=v3.20.1",
+      "HELM_VERSION=${var.helm_version}",
     ]
   }
 

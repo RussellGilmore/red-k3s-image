@@ -72,3 +72,9 @@ variable "associate_public_ip_address" {
   description = "Whether to assign a public IP to the build instance. Set true for public subnets, false for private subnets with NAT."
   default     = true
 }
+
+variable "helm_version" {
+  type        = string
+  description = "Helm version to install on the AMI (e.g. v3.20.1)."
+  default     = "v3.20.1"
+}

@@ -2,8 +2,8 @@
 set -euo pipefail
 
 : "${CERT_MANAGER_VERSION:?CERT_MANAGER_VERSION must be set, e.g. v1.20.2}"
+: "${HELM_VERSION:?HELM_VERSION must be set, e.g. v3.20.1}"
 
-HELM_VERSION="${HELM_VERSION:-v3.18.4}"
 ARCH="arm64"
 
 # ----------------------------------------------------------------------
