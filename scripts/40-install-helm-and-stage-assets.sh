@@ -52,24 +52,26 @@ ls -lh "${CM_ASSETS_DIR}/cert-manager.yaml"
 # Move staged template files and helper binaries into permanent locations.
 # (They arrived in /tmp/red-k3s-files via the Packer file provisioner.)
 # ----------------------------------------------------------------------
+STAGING="/tmp/red-k3s-staging"
+
 echo "Installing cert-manager templates..."
 install -o root -g root -m 0644 \
-  /tmp/red-k3s-files/cert-manager/cluster-issuer.yaml.tmpl \
+  "${STAGING}/cert-manager/cluster-issuer.yaml.tmpl" \
   "${CM_ASSETS_DIR}/cluster-issuer.yaml.tmpl"
 install -o root -g root -m 0644 \
-  /tmp/red-k3s-files/cert-manager/k3s-api-certificate.yaml.tmpl \
+  "${STAGING}/cert-manager/k3s-api-certificate.yaml.tmpl" \
   "${CM_ASSETS_DIR}/k3s-api-certificate.yaml.tmpl"
 
 echo "Installing helper scripts to /usr/local/bin..."
 install -o root -g root -m 0755 \
-  /tmp/red-k3s-files/bin/rotate-k3s-ca /usr/local/bin/rotate-k3s-ca
+  "${STAGING}/bin/rotate-k3s-ca" /usr/local/bin/rotate-k3s-ca
 install -o root -g root -m 0755 \
-  /tmp/red-k3s-files/bin/on-cert-renewal /usr/local/bin/on-cert-renewal
+  "${STAGING}/bin/on-cert-renewal" /usr/local/bin/on-cert-renewal
 
 # ----------------------------------------------------------------------
 # Clean up the staging directory.
 # ----------------------------------------------------------------------
-rm -rf /tmp/red-k3s-files
+rm -rf /tmp/red-k3s-staging
 
 echo "Verifying staged artifacts..."
 ls -la /opt/red-k3s/cert-manager/

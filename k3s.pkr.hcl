@@ -109,9 +109,11 @@ build {
     ]
   }
 
+  # NOTE: source = "files" copies the *contents* of files/ directly into
+  # the destination — no nested files/ dir. STAGING in script 40 matches this.
   provisioner "file" {
-    source      = "files/"
-    destination = "/tmp/red-k3s-files"
+    source      = "files"
+    destination = "/tmp/red-k3s-staging"
   }
 
   provisioner "shell" {
