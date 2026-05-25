@@ -1,0 +1,136 @@
+#!/usr/bin/env bash
+#
+# k3s-bootstrap — first-boot orchestration for the red-k3s AMI.
+#
+# Driven by /etc/k3s-bootstrap/config.env (populated via EC2 user_data).
+# Renders the k3s config, starts k3s, installs cert-manager, provisions a
+# Let's Encrypt certificate for the Kubernetes API, and rotates the k3s
+# server CA so kubectl connects over a publicly-trusted chain.
+#
+# Idempotent: writes a sentinel on success; the systemd unit skips this
+# script once the sentinel exists. Safe to re-run after a partial failure.
+#
+set -euo pipefail
+
+CONFIG_ENV="/etc/k3s-bootstrap/config.env"
+SENTINEL_DIR="/var/lib/k3s-bootstrap"
+SENTINEL="${SENTINEL_DIR}/.complete"
+ASSET_DIR="/opt/red-k3s"
+CM_DIR="${ASSET_DIR}/cert-manager"
+K3S_TMPL="${ASSET_DIR}/k3s/config.yaml.tmpl"
+LOG_FILE="/var/log/k3s-bootstrap.log"
+
+export KUBECONFIG="/etc/rancher/k3s/k3s.yaml"
+
+log() {
+  local msg
+  msg="[$(date -u +%FT%TZ)] $*"
+  echo "${msg}"
+  echo "${msg}" >> "${LOG_FILE}"
+}
+
+fail() {
+  log "ERROR: $*"
+  exit 1
+}
+
+# --- Preconditions --------------------------------------------------------
+[[ "${EUID}" -eq 0 ]] || fail "must run as root"
+[[ -f "${CONFIG_ENV}" ]] || fail "${CONFIG_ENV} not found (expected from EC2 user_data)"
+
+# shellcheck disable=SC1090
+source "${CONFIG_ENV}"
+: "${DOMAIN:?DOMAIN must be set in config.env}"
+: "${EMAIL:?EMAIL must be set in config.env}"
+: "${LE_ENV:?LE_ENV must be set in config.env}"
+
+case "${LE_ENV}" in
+  prod)    LE_SERVER="https://acme-v02.api.letsencrypt.org/directory" ;;
+  staging) LE_SERVER="https://acme-staging-v02.api.letsencrypt.org/directory" ;;
+  *) fail "LE_ENV must be 'prod' or 'staging' (got '${LE_ENV}')" ;;
+esac
+
+log "Bootstrap starting. DOMAIN=${DOMAIN} LE_ENV=${LE_ENV}"
+
+# --- 1. Render k3s config.yaml -------------------------------------------
+log "Rendering /etc/rancher/k3s/config.yaml..."
+mkdir -p /etc/rancher/k3s
+sed "s|{{TLS_SAN}}|${DOMAIN}|g" "${K3S_TMPL}" > /etc/rancher/k3s/config.yaml
+
+# --- 2. Start k3s ---------------------------------------------------------
+log "Enabling and starting k3s.service..."
+systemctl enable --now k3s.service
+
+# --- 3. Wait for the API server ------------------------------------------
+log "Waiting for the k3s API server to respond..."
+api_ready=false
+for i in $(seq 1 60); do
+  if kubectl get --raw='/readyz' >/dev/null 2>&1; then
+    api_ready=true
+    break
+  fi
+  sleep 5
+done
+[[ "${api_ready}" == "true" ]] || fail "k3s API server did not become ready"
+log "API server is up."
+
+log "Waiting for the node to reach Ready..."
+kubectl wait --for=condition=Ready node --all --timeout=300s \
+  || fail "node did not reach Ready"
+
+# --- 4. Install cert-manager ---------------------------------------------
+log "Applying cert-manager manifest..."
+kubectl apply -f "${CM_DIR}/cert-manager.yaml"
+
+log "Waiting for cert-manager CRDs to be established..."
+kubectl wait --for=condition=Established --timeout=120s \
+  crd/clusterissuers.cert-manager.io \
+  crd/certificates.cert-manager.io \
+  || fail "cert-manager CRDs were not established"
+
+log "Waiting for cert-manager deployments to roll out..."
+for dep in cert-manager cert-manager-webhook cert-manager-cainjector; do
+  kubectl -n cert-manager rollout status "deployment/${dep}" --timeout=300s \
+    || fail "${dep} did not roll out"
+done
+
+# --- 5. ClusterIssuer + Certificate --------------------------------------
+log "Rendering ClusterIssuer and Certificate manifests..."
+sed -e "s|{{LE_ENV}}|${LE_ENV}|g" \
+    -e "s|{{EMAIL}}|${EMAIL}|g" \
+    -e "s|{{LE_SERVER}}|${LE_SERVER}|g" \
+    "${CM_DIR}/cluster-issuer.yaml.tmpl" > /run/cluster-issuer.yaml
+sed -e "s|{{DOMAIN}}|${DOMAIN}|g" \
+    -e "s|{{LE_ENV}}|${LE_ENV}|g" \
+    "${CM_DIR}/k3s-api-certificate.yaml.tmpl" > /run/k3s-api-certificate.yaml
+
+# The cert-manager webhook can need a few seconds past rollout before it
+# will admit ClusterIssuer/Certificate resources. Retry the apply.
+log "Applying ClusterIssuer (retrying until the webhook admits it)..."
+issuer_applied=false
+for i in $(seq 1 30); do
+  if kubectl apply -f /run/cluster-issuer.yaml >/dev/null 2>&1; then
+    issuer_applied=true
+    break
+  fi
+  log "  webhook not ready, retry ${i}/30 in 10s..."
+  sleep 10
+done
+[[ "${issuer_applied}" == "true" ]] || fail "ClusterIssuer apply never succeeded"
+
+log "Applying Certificate..."
+kubectl apply -f /run/k3s-api-certificate.yaml
+
+log "Waiting for certificate k3s-api-cert to be issued (up to 10m)..."
+kubectl -n cert-manager wait --for=condition=Ready \
+  certificate/k3s-api-cert --timeout=600s \
+  || fail "certificate not issued — check DNS for ${DOMAIN} and inbound port 80"
+
+# --- 6. Rotate the k3s CA to the issued certificate ----------------------
+log "Rotating the k3s CA to the Let's Encrypt certificate..."
+/usr/local/bin/rotate-k3s-ca || fail "rotate-k3s-ca failed"
+
+# --- 7. Mark complete -----------------------------------------------------
+mkdir -p "${SENTINEL_DIR}"
+date -u +%FT%TZ > "${SENTINEL}"
+log "Bootstrap complete. Sentinel written to ${SENTINEL}."
