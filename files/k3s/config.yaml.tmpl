@@ -1,0 +1,5 @@
+# Rendered at first boot by k3s-bootstrap from /etc/k3s-bootstrap/config.env.
+# {{TLS_SAN}} is replaced with the DOMAIN value supplied via EC2 user_data.
+write-kubeconfig-mode: "0644"
+tls-san:
+  - {{TLS_SAN}}
