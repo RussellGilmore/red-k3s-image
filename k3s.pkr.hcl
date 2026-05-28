@@ -126,6 +126,12 @@ build {
   }
 
   provisioner "shell" {
+    script          = "scripts/50-install-bootstrap.sh"
+    execute_command = "sudo -E bash '{{ .Path }}'"
+  }
+
+
+  provisioner "shell" {
     script          = "scripts/99-cleanup.sh"
     execute_command = "sudo -E bash '{{ .Path }}'"
   }

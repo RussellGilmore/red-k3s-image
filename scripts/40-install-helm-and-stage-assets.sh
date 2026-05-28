@@ -71,7 +71,6 @@ install -o root -g root -m 0755 \
 # ----------------------------------------------------------------------
 # Clean up the staging directory.
 # ----------------------------------------------------------------------
-rm -rf /tmp/red-k3s-staging
 
 echo "Verifying staged artifacts..."
 ls -la /opt/red-k3s/cert-manager/

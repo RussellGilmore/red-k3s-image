@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+echo "Removing Packer staging directory..."
+rm -rf /tmp/red-k3s-staging
+
 echo "Cleaning shell history..."
 sudo find / -name '.bash_history' -type f -delete 2>/dev/null || true
 history -c || true
