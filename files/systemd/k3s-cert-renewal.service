@@ -1,9 +1,0 @@
-[Unit]
-Description=Re-sync the k3s CA with the cert-manager-issued certificate
-After=k3s.service
-Requires=k3s.service
-
-[Service]
-Type=oneshot
-Environment=KUBECONFIG=/etc/rancher/k3s/k3s.yaml
-ExecStart=/usr/local/bin/on-cert-renewal
