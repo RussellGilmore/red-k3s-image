@@ -55,7 +55,6 @@ source "amazon-ebs" "k3s" {
     OS                 = "ubuntu-${local.ubuntu_release}"
     Architecture       = local.architecture
     K3sVersion         = var.k3s_version
-    CertManagerVersion = var.cert_manager_version
     SourceAMI          = data.amazon-ami.ubuntu_noble_arm64.id
     BuildDate          = local.timestamp
     ManagedBy          = "Packer"
