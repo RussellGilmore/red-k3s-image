@@ -1,28 +1,29 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-echo "Removing Packer staging directory..."
+export DEBIAN_FRONTEND=noninteractive
+
+echo "[99] Re-enabling background apt timers for the deployed image..."
+# The timers were disabled in 10-apt-baseline.sh to avoid dpkg lock contention
+# during the build. Re-enable them here so instances launched from this AMI
+# receive automatic security updates.
+systemctl enable apt-daily.timer apt-daily-upgrade.timer 2>/dev/null || true
+
+echo "[99] Cleaning up before snapshot..."
+
+apt-get clean
+rm -rf /var/lib/apt/lists/*
 rm -rf /tmp/red-k3s-staging
 
-echo "Cleaning shell history..."
-sudo find / -name '.bash_history' -type f -delete 2>/dev/null || true
-history -c || true
+truncate -s 0 /etc/machine-id
+rm -f /var/lib/dbus/machine-id
+ln -sf /etc/machine-id /var/lib/dbus/machine-id
 
-echo "Cleaning cloud-init state so it re-runs on first boot of new instances..."
-sudo cloud-init clean --logs --seed
+cloud-init clean --logs || true
 
-echo "Cleaning SSH host keys (regenerated on first boot)..."
-sudo rm -f /etc/ssh/ssh_host_*
+rm -f /etc/ssh/ssh_host_*
 
-echo "Cleaning machine-id (regenerated on first boot)..."
-sudo truncate -s 0 /etc/machine-id
-sudo rm -f /var/lib/dbus/machine-id
-sudo ln -sf /etc/machine-id /var/lib/dbus/machine-id
+rm -f /root/.bash_history
+find /var/log -type f -exec truncate -s 0 {} \;
 
-echo "Cleaning apt lists and logs..."
-sudo rm -rf /var/lib/apt/lists/*
-sudo find /var/log -type f \( -name '*.log' -o -name '*.gz' -o -name '*.[0-9]' \) -delete 2>/dev/null || true
-sudo journalctl --rotate
-sudo journalctl --vacuum-time=1s
-
-echo "Cleanup complete."
+echo "[99] Cleanup complete."
