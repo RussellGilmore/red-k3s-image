@@ -18,14 +18,8 @@ variable "ami_name_prefix" {
 
 variable "k3s_version" {
   type        = string
-  description = "K3s version to install (e.g. v1.34.6+k3s1)."
-  default     = "v1.34.6+k3s1"
-}
-
-variable "cert_manager_version" {
-  type        = string
-  description = "cert-manager version to stage on the AMI."
-  default     = "v1.20.2"
+  description = "K3s version to install on the AMI."
+  default     = "v1.37.0+k3s1"
 }
 
 variable "source_ami_owner" {
@@ -75,6 +69,6 @@ variable "associate_public_ip_address" {
 
 variable "helm_version" {
   type        = string
-  description = "Helm version to install on the AMI (e.g. v3.20.1)."
-  default     = "v3.20.1"
+  description = "Helm version to install on the AMI."
+  default     = "v4.3.0"
 }

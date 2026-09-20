@@ -9,10 +9,10 @@ iam_instance_profile = "PackerBuildRole"
 associate_public_ip_address = true
 
 # Override any defaults from variables.pkr.hcl here:
-# k3s_version          = "v1.34.6+k3s1"
-# helm_version         = "v3.20.1"
-# ami_name_prefix      = "red-k3s"
-# root_volume_size     = 20
+# k3s_version      = "v1.37.0+k3s1"
+# helm_version     = "v4.3.0"
+# ami_name_prefix  = "red-k3s"
+# root_volume_size = 50
 
 extra_tags = {
   Owner   = "russell"
