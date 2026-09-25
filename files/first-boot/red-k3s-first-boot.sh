@@ -6,8 +6,9 @@ set -euo pipefail
 #
 # Invoked by cloud-init from the instance's user-data. Expects user-data to
 # have written /etc/red-k3s/first-boot.env with:
-#   DOMAIN=k3s.example.com
-#   K3S_ROLE=server
+#   DOMAIN=k3s.example.com        (required)
+#   K3S_ROLE=server               (optional, defaults to 'server')
+#   ENABLE_TRAEFIK=false          (optional, defaults to 'false')
 #
 # Idempotent: completes once, marks a sentinel, and is a no-op on re-run.
 # Safe to re-run by hand over SSM after a partial failure.
@@ -43,10 +44,16 @@ if [[ ! -f "${ENV_FILE}" ]]; then
   exit 1
 fi
 
+if [[ ! -f "${TEMPLATE}" ]]; then
+  echo "[first-boot] ERROR: ${TEMPLATE} not found. The AMI is incomplete." >&2
+  exit 1
+fi
+
 # shellcheck disable=SC1090
 source "${ENV_FILE}"
 
 : "${DOMAIN:?DOMAIN must be set in ${ENV_FILE}}"
+
 K3S_ROLE="${K3S_ROLE:-server}"
 
 case "${K3S_ROLE}" in
@@ -64,12 +71,40 @@ case "${K3S_ROLE}" in
     ;;
 esac
 
+# Traefik is off by default: ingress is handled by Istio implementing the
+# Kubernetes Gateway API. Set ENABLE_TRAEFIK=true only if you want the
+# bundled Traefik instead — it will claim host ports 80/443 via ServiceLB,
+# which conflicts with an Istio gateway on the same node.
+ENABLE_TRAEFIK="${ENABLE_TRAEFIK:-false}"
+
+case "${ENABLE_TRAEFIK}" in
+  true|false)
+    echo "[first-boot] Bundled Traefik enabled: ${ENABLE_TRAEFIK}."
+    ;;
+  *)
+    echo "[first-boot] ERROR: invalid ENABLE_TRAEFIK='${ENABLE_TRAEFIK}' (expected 'true' or 'false')." >&2
+    exit 1
+    ;;
+esac
+
 # ---------------------------------------------------------------------------
-# 2. Render the k3s config.
+# 2. Render the k3s config. Regenerated from the template every run, so the
+#    appended disable block can never accumulate duplicates.
 # ---------------------------------------------------------------------------
 echo "[first-boot] Rendering ${CONFIG} for ${DOMAIN}..."
 install -d -o root -g root -m 0755 /etc/rancher/k3s
 sed "s|__DOMAIN__|${DOMAIN}|g" "${TEMPLATE}" > "${CONFIG}"
+
+if [[ "${ENABLE_TRAEFIK}" == "false" ]]; then
+  echo "[first-boot] Disabling bundled Traefik."
+  cat >> "${CONFIG}" <<'EOF'
+
+# Ingress is handled by Istio via the Gateway API.
+disable:
+  - traefik
+EOF
+fi
+
 chown root:root "${CONFIG}"
 chmod 0600 "${CONFIG}"
 
@@ -118,6 +153,7 @@ fi
 # ---------------------------------------------------------------------------
 # 6. Mark completion.
 # ---------------------------------------------------------------------------
+echo "[first-boot] Writing sentinel ${SENTINEL}."
 install -d -o root -g root -m 0755 /var/lib/red-k3s
 date -u +%FT%TZ > "${SENTINEL}"
 chmod 0644 "${SENTINEL}"
