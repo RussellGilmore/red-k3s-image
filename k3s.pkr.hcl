@@ -115,12 +115,22 @@ build {
     destination = "/tmp/red-k3s-staging"
   }
 
-  provisioner "shell" {
-    script          = "scripts/40-install-helm-and-stage-assets.sh"
+    provisioner "shell" {
+    script          = "scripts/35-install-helm.sh"
     execute_command = "{{.Vars}} sudo --preserve-env=HELM_VERSION bash '{{ .Path }}'"
     environment_vars = [
       "HELM_VERSION=${var.helm_version}",
     ]
+  }
+
+  provisioner "file" {
+    source      = "files"
+    destination = "/tmp/red-k3s-staging"
+  }
+
+  provisioner "shell" {
+    script          = "scripts/40-stage-assets.sh"
+    execute_command = "sudo -E bash '{{ .Path }}'"
   }
 
   provisioner "shell" {
