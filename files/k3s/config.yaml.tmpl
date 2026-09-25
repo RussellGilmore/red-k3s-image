@@ -1,5 +1,17 @@
-# Rendered at first boot by k3s-bootstrap from /etc/k3s-bootstrap/config.env.
-# {{TLS_SAN}} is replaced with the DOMAIN value supplied via EC2 user_data.
-write-kubeconfig-mode: "0644"
+# Rendered to /etc/rancher/k3s/config.yaml by red-k3s-first-boot.sh.
+# __DOMAIN__ is replaced with the cluster's FQDN at first boot.
+
+write-kubeconfig-mode: "0600"
+
+# Embedded etcd from the start so additional servers can join later
+# without a datastore migration.
+cluster-init: true
+
 tls-san:
-  - {{TLS_SAN}}
+  - __DOMAIN__
+
+# Traefik is disabled: ingress is handled by Istio implementing the
+# Kubernetes Gateway API, installed after the cluster is up. ServiceLB,
+# local-path and metrics-server stay enabled.
+disable:
+  - traefik
