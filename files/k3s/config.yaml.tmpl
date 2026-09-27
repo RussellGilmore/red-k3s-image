@@ -9,9 +9,3 @@ cluster-init: true
 
 tls-san:
   - __DOMAIN__
-
-# Traefik is disabled: ingress is handled by Istio implementing the
-# Kubernetes Gateway API, installed after the cluster is up. ServiceLB,
-# local-path and metrics-server stay enabled.
-disable:
-  - traefik

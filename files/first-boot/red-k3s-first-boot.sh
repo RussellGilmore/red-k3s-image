@@ -140,11 +140,33 @@ if [[ "${api_ready}" != "true" ]]; then
 fi
 
 # ---------------------------------------------------------------------------
-# 5. Wait for this node to reach Ready.
+# 5. Wait for this node to register, then reach Ready.
+#    'kubectl wait --all' errors out if no node object exists yet, so poll
+#    for registration first rather than racing it.
 # ---------------------------------------------------------------------------
-echo "[first-boot] Waiting for the node to reach Ready..."
+echo "[first-boot] Waiting for the node object to register..."
+NODE_MAX_ATTEMPTS=60
+NODE_NAME=""
+
+for attempt in $(seq 1 "${NODE_MAX_ATTEMPTS}"); do
+  NODE_NAME="$(KUBECONFIG="${KUBECONFIG_PATH}" k3s kubectl get nodes \
+    -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || true)"
+  if [[ -n "${NODE_NAME}" ]]; then
+    echo "[first-boot] Node ${NODE_NAME} registered after ${attempt} attempt(s)."
+    break
+  fi
+  sleep 5
+done
+
+if [[ -z "${NODE_NAME}" ]]; then
+  echo "[first-boot] ERROR: no node registered with the API server." >&2
+  journalctl -u k3s --no-pager -n 50 >&2 || true
+  exit 1
+fi
+
+echo "[first-boot] Waiting for ${NODE_NAME} to reach Ready..."
 if ! KUBECONFIG="${KUBECONFIG_PATH}" k3s kubectl wait \
-    --for=condition=Ready node --all --timeout=300s; then
+    --for=condition=Ready "node/${NODE_NAME}" --timeout=300s; then
   echo "[first-boot] ERROR: node did not reach Ready in time." >&2
   KUBECONFIG="${KUBECONFIG_PATH}" k3s kubectl get nodes -o wide >&2 || true
   exit 1
