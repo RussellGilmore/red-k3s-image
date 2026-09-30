@@ -1,13 +1,9 @@
 name: Build k3s AMI
 
 on:
-  # push:
-  #   tags:
-  #     - "v*"
   push:
-    branches: ["main"]
-  pull_request:
-    branches: ["main"]
+    tags:
+      - "v*"
 permissions:
   id-token: write
   contents: read
