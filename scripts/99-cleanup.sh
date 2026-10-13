@@ -23,6 +23,8 @@ cloud-init clean --logs || true
 
 rm -f /etc/ssh/ssh_host_*
 
+rm -f /etc/iscsi/initiatorname.iscsi
+
 rm -f /root/.bash_history
 find /var/log -type f -exec truncate -s 0 {} \;
 
