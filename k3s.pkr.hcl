@@ -103,18 +103,16 @@ build {
   }
 
   provisioner "shell" {
+    script          = "scripts/25-storage-prereqs.sh"
+    execute_command = "sudo -E bash '{{ .Path }}'"
+  }
+
+  provisioner "shell" {
     script          = "scripts/30-install-k3s.sh"
     execute_command = "{{.Vars}} sudo --preserve-env=K3S_VERSION bash '{{ .Path }}'"
     environment_vars = [
       "K3S_VERSION=${var.k3s_version}",
     ]
-  }
-
-  # NOTE: source = "files" copies the *contents* of files/ directly into
-  # the destination — no nested files/ dir. STAGING in script 40 matches this.
-  provisioner "file" {
-    source      = "files"
-    destination = "/tmp/red-k3s-staging"
   }
 
   provisioner "shell" {
@@ -125,6 +123,16 @@ build {
     ]
   }
 
+  provisioner "shell" {
+    script          = "scripts/36-install-aws-cli.sh"
+    execute_command = "{{.Vars}} sudo --preserve-env=AWS_CLI_VERSION bash '{{ .Path }}'"
+    environment_vars = [
+      "AWS_CLI_VERSION=${var.aws_cli_version}",
+    ]
+  }
+
+  # NOTE: source = "files" copies the *contents* of files/ directly into
+  # the destination — no nested files/ dir. STAGING in script 40 matches this.
   provisioner "file" {
     source      = "files"
     destination = "/tmp/red-k3s-staging"
