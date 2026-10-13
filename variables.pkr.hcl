@@ -37,7 +37,7 @@ variable "ssh_username" {
 variable "root_volume_size" {
   type        = number
   description = "Root volume size (GiB) on the built AMI."
-  default     = 20
+  default     = 50
 }
 
 variable "extra_tags" {
@@ -71,4 +71,10 @@ variable "helm_version" {
   type        = string
   description = "Helm version to install on the AMI."
   default     = "v4.3.0"
+}
+
+variable "aws_cli_version" {
+  type        = string
+  description = "AWS CLI v2 version to install on the AMI."
+  default     = "2.37.2"
 }

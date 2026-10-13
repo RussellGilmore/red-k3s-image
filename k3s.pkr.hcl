@@ -33,7 +33,7 @@ source "amazon-ebs" "k3s" {
 
   source_ami      = data.amazon-ami.ubuntu_resolute_arm64.id
   ami_name        = local.ami_name
-  ami_description = "K3s ${var.k3s_version} single-node image on Ubuntu ${local.ubuntu_release} ${local.architecture}"
+  ami_description = "K3s ${var.k3s_version} server/agent image on Ubuntu ${local.ubuntu_release} ${local.architecture}"
 
   launch_block_device_mappings {
     device_name           = "/dev/sda1"
@@ -51,13 +51,15 @@ source "amazon-ebs" "k3s" {
   }
 
   tags = merge({
-    Name               = local.ami_name
-    OS                 = "ubuntu-${local.ubuntu_release}"
-    Architecture       = local.architecture
-    K3sVersion         = var.k3s_version
-    SourceAMI          = data.amazon-ami.ubuntu_resolute_arm64.id
-    BuildDate          = local.timestamp
-    ManagedBy          = "Packer"
+    Name          = local.ami_name
+    OS            = "ubuntu-${local.ubuntu_release}"
+    Architecture  = local.architecture
+    K3sVersion    = var.k3s_version
+    HelmVersion   = var.helm_version
+    AwsCliVersion = var.aws_cli_version
+    SourceAMI     = data.amazon-ami.ubuntu_resolute_arm64.id
+    BuildDate     = local.timestamp
+    ManagedBy     = "Packer"
   }, var.extra_tags)
 
   run_tags = {
@@ -115,7 +117,7 @@ build {
     destination = "/tmp/red-k3s-staging"
   }
 
-    provisioner "shell" {
+  provisioner "shell" {
     script          = "scripts/35-install-helm.sh"
     execute_command = "{{.Vars}} sudo --preserve-env=HELM_VERSION bash '{{ .Path }}'"
     environment_vars = [
