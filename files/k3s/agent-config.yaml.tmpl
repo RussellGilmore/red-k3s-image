@@ -1,0 +1,15 @@
+# Rendered to /etc/rancher/k3s/config.yaml by red-k3s-first-boot.sh when
+# K3S_ROLE=agent. Placeholders are substituted at first boot.
+
+server: https://__DOMAIN__:6443
+
+# Agent token fetched from SSM at first boot into a root-only file.
+token-file: /etc/red-k3s/agent-token
+
+node-label:
+  # No AWS cloud provider, so k3s won't set these itself.
+  - topology.kubernetes.io/zone=__ZONE__
+  - topology.kubernetes.io/region=__REGION__
+  # Once any node carries this, ServiceLB only uses labeled nodes, so the
+  # server never binds 80/443.
+  - svccontroller.k3s.cattle.io/enablelb=true
