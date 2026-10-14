@@ -1,0 +1,26 @@
+# Rendered to /etc/rancher/k3s/config.yaml by red-k3s-first-boot.sh when
+# K3S_ROLE=server. Placeholders are substituted at first boot; a 'disable:'
+# block is appended unless ENABLE_TRAEFIK=true.
+
+write-kubeconfig-mode: "0600"
+
+# Embedded etcd from day one.
+cluster-init: true
+
+tls-san:
+  - __DOMAIN__
+
+# Tokens are fetched from SSM at first boot into root-only files.
+# Values never appear in this file, user-data, or logs.
+token-file: /etc/red-k3s/server-token
+agent-token-file: /etc/red-k3s/agent-token
+
+# Application workloads run on agents only. Bundled critical add-ons
+# (CoreDNS, metrics-server, local-path) tolerate this taint.
+node-taint:
+  - CriticalAddonsOnly=true:NoExecute
+
+# No AWS cloud provider, so k3s won't set these itself.
+node-label:
+  - topology.kubernetes.io/zone=__ZONE__
+  - topology.kubernetes.io/region=__REGION__
