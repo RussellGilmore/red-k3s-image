@@ -1,6 +1,6 @@
 # Rendered to /etc/rancher/k3s/config.yaml by red-k3s-first-boot.sh when
 # K3S_ROLE=server. Placeholders are substituted at first boot; a 'disable:'
-# block is appended unless ENABLE_TRAEFIK=true.
+# block is appended (gateway-api-crd always, traefik unless ENABLE_TRAEFIK=true).
 
 write-kubeconfig-mode: "0600"
 

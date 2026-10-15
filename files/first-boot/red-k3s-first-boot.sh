@@ -173,14 +173,26 @@ sed -e "s|__DOMAIN__|${DOMAIN}|g" \
     -e "s|__REGION__|${REGION}|g" \
     "${TEMPLATE}" > "${RENDERED}"
 
-if [[ "${K3S_ROLE}" == "server" && "${ENABLE_TRAEFIK}" == "false" ]]; then
-  log "Disabling bundled Traefik."
-  cat >> "${RENDERED}" <<'EOF'
+# Packaged k3s components to disable (server only):
+#   gateway-api-crd  Always. Gateway API CRDs are installed alongside Istio,
+#                    version-matched. k3s's chart sets takeOwnership and
+#                    forceConflicts, so it would reclaim them on every
+#                    reconcile and k3s upgrade.
+#   traefik          Unless ENABLE_TRAEFIK=true. Ingress is Istio via the
+#                    Gateway API.
+if [[ "${K3S_ROLE}" == "server" ]]; then
+  DISABLE=("gateway-api-crd")
+  [[ "${ENABLE_TRAEFIK}" == "false" ]] && DISABLE+=("traefik")
 
-# Ingress is handled by Istio via the Gateway API.
-disable:
-  - traefik
-EOF
+  log "Disabling packaged components: ${DISABLE[*]}."
+  {
+    echo
+    echo "# Packaged components disabled by red-k3s-first-boot.sh."
+    echo "disable:"
+    for component in "${DISABLE[@]}"; do
+      echo "  - ${component}"
+    done
+  } >> "${RENDERED}"
 fi
 
 if grep -q '__[A-Z]\+__' "${RENDERED}"; then
