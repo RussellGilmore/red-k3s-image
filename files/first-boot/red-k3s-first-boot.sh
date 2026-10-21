@@ -7,11 +7,12 @@ set -euo pipefail
 # Invoked by cloud-init from the instance's user-data. Expects user-data to
 # have written /etc/red-k3s/first-boot.env:
 #
-#   K3S_ROLE=server|agent               (required)
-#   DOMAIN=k3s.example.com              (required, both roles)
-#   K3S_SERVER_TOKEN_PARAM=/path        (required, server only)
-#   K3S_AGENT_TOKEN_PARAM=/path         (required, both roles)
-#   ENABLE_TRAEFIK=false                (optional, server only)
+#   K3S_ROLE=server|agent                  (required)
+#   DOMAIN=k3s.example.com                 (required, server only; tls-san)
+#   K3S_SERVER_URL=https://10.0.0.10:6443  (required, agent only)
+#   K3S_SERVER_TOKEN_PARAM=/path           (required, server only)
+#   K3S_AGENT_TOKEN_PARAM=/path            (required, both roles)
+#   ENABLE_TRAEFIK=false                   (optional, server only)
 #
 # The env file carries SSM parameter NAMES only. Token values are fetched
 # here into root-only files and must never be printed.
@@ -63,12 +64,13 @@ fi
 source "${ENV_FILE}"
 
 [[ -n "${K3S_ROLE:-}" ]] || fail "K3S_ROLE must be set in ${ENV_FILE} ('server' or 'agent')."
-[[ -n "${DOMAIN:-}" ]]   || fail "DOMAIN must be set in ${ENV_FILE}."
 [[ -n "${K3S_AGENT_TOKEN_PARAM:-}" ]] \
   || fail "K3S_AGENT_TOKEN_PARAM must be set in ${ENV_FILE}."
 
 case "${K3S_ROLE}" in
   server)
+    [[ -n "${DOMAIN:-}" ]] \
+      || fail "DOMAIN must be set in ${ENV_FILE} for K3S_ROLE=server."
     [[ -n "${K3S_SERVER_TOKEN_PARAM:-}" ]] \
       || fail "K3S_SERVER_TOKEN_PARAM must be set in ${ENV_FILE} for K3S_ROLE=server."
 
@@ -83,6 +85,13 @@ case "${K3S_ROLE}" in
     OTHER_UNIT="k3s-agent"
     ;;
   agent)
+    [[ -n "${K3S_SERVER_URL:-}" ]] \
+      || fail "K3S_SERVER_URL must be set in ${ENV_FILE} for K3S_ROLE=agent."
+    [[ "${K3S_SERVER_URL}" =~ ^https://[^/[:space:]]+:6443$ ]] \
+      || fail "invalid K3S_SERVER_URL='${K3S_SERVER_URL}' (expected https://<server-private-ip>:6443)."
+    if [[ -n "${DOMAIN:-}" ]]; then
+      log "WARNING: DOMAIN is a server-only setting; ignoring it for the agent role."
+    fi
     if [[ -n "${ENABLE_TRAEFIK:-}" ]]; then
       log "WARNING: ENABLE_TRAEFIK is a server-only setting; ignoring it for the agent role."
     fi
@@ -97,7 +106,11 @@ esac
 TEMPLATE="${RED_K3S_DIR}/${K3S_ROLE}-config.yaml.tmpl"
 [[ -f "${TEMPLATE}" ]] || fail "${TEMPLATE} not found. The AMI is incomplete."
 
-log "Role: ${K3S_ROLE}. Domain: ${DOMAIN}."
+if [[ "${K3S_ROLE}" == "server" ]]; then
+  log "Role: server. Domain: ${DOMAIN}."
+else
+  log "Role: agent. Server: ${K3S_SERVER_URL}."
+fi
 
 # ---------------------------------------------------------------------------
 # 2. Read placement from IMDSv2. No AWS cloud provider, so these become
@@ -168,7 +181,10 @@ log "Rendering ${CONFIG} from ${TEMPLATE}..."
 install -d -o root -g root -m 0755 /etc/rancher/k3s
 
 RENDERED="$(mktemp "${CONFIG}.XXXXXX")"
-sed -e "s|__DOMAIN__|${DOMAIN}|g" \
+# Each template uses only its own role's placeholders; the defaults keep
+# set -u happy for the variable the other role doesn't set.
+sed -e "s|__DOMAIN__|${DOMAIN:-}|g" \
+    -e "s|__SERVER_URL__|${K3S_SERVER_URL:-}|g" \
     -e "s|__ZONE__|${ZONE}|g" \
     -e "s|__REGION__|${REGION}|g" \
     "${TEMPLATE}" > "${RENDERED}"
@@ -195,7 +211,7 @@ if [[ "${K3S_ROLE}" == "server" ]]; then
   } >> "${RENDERED}"
 fi
 
-if grep -q '__[A-Z]\+__' "${RENDERED}"; then
+if grep -q '__[A-Z_]\+__' "${RENDERED}"; then
   rm -f "${RENDERED}"
   fail "unsubstituted placeholder left in the rendered config."
 fi
@@ -274,7 +290,7 @@ wait_agent() {
 
   # The kubelet health endpoint only answers ok once the agent has joined
   # the server and the kubelet is running.
-  log "Waiting for the agent to join https://${DOMAIN}:6443 (up to $(( AGENT_MAX_ATTEMPTS * 5 / 60 )) min)..."
+  log "Waiting for the agent to join ${K3S_SERVER_URL} (up to $(( AGENT_MAX_ATTEMPTS * 5 / 60 )) min)..."
   for attempt in $(seq 1 "${AGENT_MAX_ATTEMPTS}"); do
     if [[ "$(curl -fsS --max-time 3 http://127.0.0.1:10248/healthz 2>/dev/null || true)" == "ok" ]]; then
       log "Agent joined and kubelet healthy after ${attempt} attempt(s)."

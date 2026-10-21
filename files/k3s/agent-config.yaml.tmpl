@@ -1,7 +1,10 @@
 # Rendered to /etc/rancher/k3s/config.yaml by red-k3s-first-boot.sh when
 # K3S_ROLE=agent. Placeholders are substituted at first boot.
 
-server: https://__DOMAIN__:6443
+# The server's private address (e.g. https://10.30.0.10:6443). Joining over
+# the VPC keeps join traffic off the internet; the node IP is in the server
+# cert's SANs by default.
+server: __SERVER_URL__
 
 # Agent token fetched from SSM at first boot into a root-only file.
 token-file: /etc/red-k3s/agent-token
