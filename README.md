@@ -2,78 +2,114 @@
 
 ## [![Red K3s Image](https://github.com/RussellGilmore/red-k3s-image/actions/workflows/build-ami.yml/badge.svg?branch=main)](https://github.com/RussellGilmore/red-k3s-image/actions/workflows/build-ami.yml)
 
-Packer configuration that builds an AWS AMI running a single-node
-[k3s](https://k3s.io/) cluster with embedded etcd, ready for Istio and the
-Kubernetes Gateway API. Traefik is disabled by default but can be enabled if
-needed.
+A Packer-built AWS AMI for [k3s](https://k3s.io/) clusters: one image that boots
+as a control-plane server or a worker agent, joins over private networking, and
+pulls its secrets from SSM at first boot. It is designed to be deployed with the
+red Terraform modules, and [`examples/terraform`](./examples/terraform) builds a
+complete multi-AZ cluster from nothing but those modules.
 
-## Overview
+## Features
 
-This image bakes in k3s and Helm at pinned versions and defers all
-cluster-specific configuration to first boot via cloud-init. Launch it for any
-domain by supplying values through EC2 user-data.
+- **One image, two roles.** k3s is installed with both a server and an agent
+  unit, neither started at bake time. `K3S_ROLE` in user-data picks one at first
+  boot.
+- **Nothing secret or unique is baked in.** No node identity, tokens, TLS
+  material or iSCSI initiator name ships in the AMI; every instance generates
+  its own.
+- **Tokens from SSM, never user-data.** First boot reads the join tokens from
+  SSM Parameter Store into root-only files. User-data carries parameter names
+  only.
+- **Private joins.** Agents join the server's private IP, so join traffic never
+  leaves the VPC and the API needs no public exposure.
+- **Embedded etcd** from the first boot.
+- **Zone-aware.** Nodes are labeled with their region and AZ from IMDS, ready
+  for topology spread and zone-aware storage.
+- **Workloads on agents only.** The server is tainted
+  `CriticalAddonsOnly=true:NoExecute`; ServiceLB runs only on agents.
+- **Ready for Istio and the Gateway API.** Traefik and k3s's bundled Gateway API
+  CRDs are disabled, so the CRDs can be installed version-matched to Istio.
+- **Longhorn-ready.** open-iscsi, NFS client, cryptsetup and the required kernel
+  modules are pre-installed.
+- **Hardened access.** SSM Session Manager only (no SSH keys), IMDSv2, encrypted
+  root volume. The AWS CLI and Helm are installed at pinned versions.
+- **Idempotent first boot.** Safe to re-run by hand after a partial failure;
+  agents that boot before the server keep retrying until it is reachable.
 
-Key design points:
+## Built for the red Terraform modules
 
--   **Ubuntu 26.04 LTS (Resolute), arm64/Graviton** base, rebuilt from the
-    newest Canonical image at each bake.
--   **k3s installed but never started at bake time.** Starting k3s during the
-    build would bake the node identity, cluster token and TLS material into the
-    AMI, shared by every instance launched from it. The service is enabled and
-    started at first boot instead.
--   **Embedded etcd from the start** (`cluster-init: true`), so additional
-    servers can join later without a datastore migration.
--   **Traefik disabled by default.** It can be enabled if needed.
--   **API reachable by name.** The cluster's FQDN is rendered into `tls-san`, so
-    a kubeconfig pointed at that name verifies cleanly against the k3s CA.
--   **SSM-only access.** No SSH key pair; reach the instance through AWS Session
-    Manager. IMDSv2 required, root volume encrypted.
--   **Idempotent first boot.** The script marks a sentinel on completion and is
-    a no-op on re-run, so it can be safely re-run by hand after a partial
-    failure.
+Each layer of a cluster maps onto a red module:
 
-## Components
+| Layer                      | Module                                                                                |
+| -------------------------- | ------------------------------------------------------------------------------------- |
+| Remote state               | [red-backend](https://registry.terraform.io/modules/RussellGilmore/red-backend/aws)   |
+| VPC and one subnet per AZ  | [red-network](https://registry.terraform.io/modules/RussellGilmore/red-network/aws)   |
+| Server and agents          | [red-instance](https://registry.terraform.io/modules/RussellGilmore/red-instance/aws) |
+| Public entry point and DNS | [red-lb](https://registry.terraform.io/modules/RussellGilmore/red-lb/aws)             |
 
-Baked into the image:
+The image's runtime needs line up with what the modules provide:
 
--   `k3s` at a pinned version (installed, disabled and inactive until first
-    boot)
--   `helm` at a pinned version
--   A k3s config template (`/etc/red-k3s/config.yaml.tmpl`), with the domain
-    slotted in and the `disable:` block appended at first boot
--   A first-boot script (`/usr/local/sbin/red-k3s-first-boot.sh`) driven by
-    cloud-init
--   A system-wide `KUBECONFIG` export for root shells
+- red-instance pins the server's private IP (`private_ip`), which agents join
+  by; attaches the token-reading IAM policy before launch
+  (`additional_iam_policy_json`); and passes the user-data that selects the
+  role.
+- red-lb fronts the cluster with an NLB: 80/443 to the agents, the Kubernetes
+  API to the server for admin CIDRs only, plus the DNS alias for the API name.
+  Nodes admit traffic only from the NLB's security group.
+- red-network provides the multi-AZ subnets the agents spread across.
 
-## Prerequisites
+```
+                 Internet
+                    │
+        ┌───────────┴───────────┐
+        │   NLB (red-lb)        │   80/443 public · 6443 admin only
+        └───┬───────────────┬───┘
+            │ 6443          │ 80/443
+     ┌──────┴─────┐   ┌─────┴──────────────────────────┐
+     │  server    │◄──┤ agent-a   agent-b   agent-c    │  (red-instance)
+     │ pinned IP  │   │ one per AZ, private join       │
+     └────────────┘   └────────────────────────────────┘
+         VPC with one public subnet per AZ (red-network)
+```
 
--   Packer >= 1.14.0
--   AWS credentials configured (env vars, shared config, or instance profile)
--   A build VPC/subnet with outbound internet access
--   An IAM instance profile for the build with `AmazonSSMManagedInstanceCore`
-    (Packer connects via Session Manager — see [Build IAM](#build-iam))
+See [`examples/terraform`](./examples/terraform) to deploy it.
+
+## Runtime configuration contract
+
+Cloud-init writes `/etc/red-k3s/first-boot.env` and runs
+`/usr/local/sbin/red-k3s-first-boot.sh`.
+
+| Variable                 | Server   | Agent    | Description                                        |
+| ------------------------ | -------- | -------- | -------------------------------------------------- |
+| `K3S_ROLE`               | required | required | `server` or `agent`                                |
+| `DOMAIN`                 | required | —        | API hostname, rendered into the server certificate |
+| `K3S_SERVER_URL`         | —        | required | `https://<server-private-ip>:6443`                 |
+| `K3S_SERVER_TOKEN_PARAM` | required | —        | SSM parameter name of the server token             |
+| `K3S_AGENT_TOKEN_PARAM`  | required | required | SSM parameter name of the agent token              |
+| `ENABLE_TRAEFIK`         | optional | —        | `false` (default)                                  |
+
+Progress is logged to `/var/log/red-k3s-first-boot.log`; completion is marked by
+`/var/lib/red-k3s/first-boot.done`.
 
 ## Build
 
-Copy the example vars file, fill in your build networking, and build:
+Requires Packer >= 1.14.0, AWS credentials, a build subnet with outbound
+internet access, and an instance profile with `AmazonSSMManagedInstanceCore`
+(see [Build IAM](#build-iam)).
 
 ```bash
 cp example.pkrvars.hcl build.auto.pkrvars.hcl   # gitignored; edit values
 packer init .
-packer fmt -check .
 packer validate .
 packer build .
 ```
 
-The build prints the resulting AMI ID on completion. See `variables.pkr.hcl` for
-all available build variables, including the `k3s_version` and `helm_version`
-pins.
+Versions of k3s, Helm and the AWS CLI are pinned in `variables.pkr.hcl` and
+tagged on the AMI.
 
 ## Build IAM
 
-The build instance connects via AWS Session Manager (no SSH keys), so it needs
-an instance profile with SSM permissions. Create this once in your account
-before building:
+Packer connects to the build instance over Session Manager, so the build needs
+an instance profile with SSM permissions:
 
 ```hcl
 resource "aws_iam_role" "packer_build" {
@@ -101,134 +137,15 @@ resource "aws_iam_instance_profile" "packer_build" {
 }
 ```
 
-Pass the instance profile name to the build via the `iam_instance_profile`
-variable (see `example.pkrvars.hcl`). The identity you run Packer with (your AWS
-credentials) also needs permissions to launch instances, create AMIs and
-snapshots, and manage temporary build resources — see the
-[Packer AWS documentation](https://developer.hashicorp.com/packer/integrations/hashicorp/amazon#iam-task-or-instance-role)
-for the minimal build policy.
-
-## Runtime configuration contract
-
-At first boot, cloud-init (from the instance's user-data) must write
-`/etc/red-k3s/first-boot.env` and invoke the first-boot script. The env file
-supports:
-
-| Variable         | Required | Description                                                                                                 |
-| ---------------- | :------: | ----------------------------------------------------------------------------------------------------------- |
-| `DOMAIN`         |   yes    | FQDN for the cluster's API endpoint; rendered into `tls-san`. Must match the A record pointing at the node. |
-| `K3S_ROLE`       |    no    | `server` (default). `agent` is reserved and currently exits with an error.                                  |
-| `ENABLE_TRAEFIK` |    no    | `false` (default). Set `true` to keep k3s's bundled Traefik instead of using Istio for ingress.             |
-
-First boot renders `/etc/rancher/k3s/config.yaml`, starts k3s, waits for the API
-and the node to reach Ready, then writes `/var/lib/red-k3s/first-boot.done`.
-Progress is logged to `/var/log/red-k3s-first-boot.log`.
-
-## Deploying with red-instance
-
-This image pairs with the
-[terraform-aws-red-instance](https://github.com/RussellGilmore/terraform-aws-red-instance)
-module, which provides the `user_data` input this image needs.
-
-A cloud-config user-data template (`k3s-user-data.yaml.tftpl`) writes the env
-file and runs first-boot:
-
-```yaml
-#cloud-config
-write_files:
-    - path: /etc/red-k3s/first-boot.env
-      owner: root:root
-      permissions: "0600"
-      content: |
-          DOMAIN=${cluster_domain}
-          K3S_ROLE=server
-          ENABLE_TRAEFIK=false
-
-runcmd:
-    - /usr/local/sbin/red-k3s-first-boot.sh
-```
-
-And the module call:
-
-```hcl
-module "k3s_cluster" {
-  source = "git::https://github.com/RussellGilmore/terraform-aws-red-instance.git?ref=v2.2.0"
-
-  project_name  = "red-space"
-  instance_name = "Cluster"
-
-  instance_type = "t4g.medium"
-  ami_name      = "red-k3s-*"        # matches the Packer ami_name_prefix
-  ami_owner     = var.k3s_ami_owner  # your account ID (you built the AMI)
-  volume_size   = 50
-
-  # Standalone: the module provisions its own public VPC.
-  create_vpc        = true
-  availability_zone = "us-east-1f"
-  allocate_eip      = true
-
-  # Kubernetes API plus HTTP/HTTPS for the Istio gateway. No SSH (SSM-only).
-  # Node-to-node ports (8472/udp VXLAN, 10250/tcp kubelet) are intentionally
-  # absent: they are not needed on a single node and must never be public.
-  ingress_rules = [
-    {
-      description = "Kubernetes API"
-      from_port   = 6443
-      to_port     = 6443
-      protocol    = "tcp"
-      cidr_blocks = ["0.0.0.0/0"]
-    },
-    {
-      description = "HTTP via Istio gateway"
-      from_port   = 80
-      to_port     = 80
-      protocol    = "tcp"
-      cidr_blocks = ["0.0.0.0/0"]
-    },
-    {
-      description = "HTTPS via Istio gateway"
-      from_port   = 443
-      to_port     = 443
-      protocol    = "tcp"
-      cidr_blocks = ["0.0.0.0/0"]
-    }
-  ]
-
-  # Rendered user-data carrying the cluster domain.
-  user_data = templatefile("${path.module}/k3s-user-data.yaml.tftpl", {
-    cluster_domain = "cluster.example.com"
-  })
-
-  # Public DNS A record for the API endpoint. Must match DOMAIN above, or
-  # the name will not appear in the API server certificate's SANs.
-  enable_public_dns = true
-  apex_domain       = "example.com"
-  dns_name          = "cluster.example.com"
-}
-```
+Pass the profile name via `iam_instance_profile` in your vars file.
 
 ## Accessing the cluster
 
-The kubeconfig is written with mode `0600`, so use a root shell over SSM:
+[`scripts/get-kubeconfig.sh`](./scripts/get-kubeconfig.sh) fetches the admin
+kubeconfig over SSM, points it at your API name and writes it `0600`:
 
 ```bash
-sudo -i
-kubectl get nodes
-helm list -A
+scripts/get-kubeconfig.sh -u https://cluster.example.com:6443
 ```
 
-To use it from a workstation, copy `/etc/rancher/k3s/k3s.yaml` locally and
-replace `127.0.0.1` with the cluster's FQDN:
-
-```bash
-kubectl --kubeconfig ./cluster.yaml get nodes
-```
-
-No TLS workaround is needed. The kubeconfig carries the k3s cluster CA and the
-FQDN is covered by the API server certificate's SANs via `tls-san`.
-
-## Roadmap
-
--   Agent role support (`K3S_ROLE=agent`), with the join token delivered via SSM
-    Parameter Store rather than user-data
--   Istio and Gateway API install guidance for the post-cluster bootstrap
+The kubeconfig is a cluster-admin credential. Never commit it.

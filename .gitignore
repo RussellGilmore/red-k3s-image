@@ -38,6 +38,13 @@ crash.*.log
 !example.tfvars
 !*.example.tfvars
 
+# Backend configuration (partial config passed to terraform init) names your
+# state bucket. Commit only the .example copies.
+backend.hcl
+*.backend.hcl
+backend.*.hcl
+!*.hcl.example
+
 # Ignore override files as they are usually used to override resources locally and so
 # are not checked in
 override.tf
@@ -68,6 +75,16 @@ manifest.json
 # Packer var files may contain sensitive values
 *.pkrvars.hcl
 !example.pkrvars.hcl
+
+############### Kubernetes ###############
+# Kubeconfigs carry cluster-admin credentials. Never commit them.
+.kube/
+kubeconfig
+kubeconfig.*
+*.kubeconfig
+*-kubeconfig.yaml
+*-kubeconfig.yml
+k3s.yaml
 
 ############### Golang ###############
 # Binaries for programs and plugins
