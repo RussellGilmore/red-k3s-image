@@ -1,0 +1,5 @@
+bucket       = "<project_name>-s3"
+key          = "red-k3s/terraform.tfstate"
+region       = "us-east-1"
+encrypt      = true
+use_lockfile = true
