@@ -1,0 +1,6 @@
+domain      = "cluster.example.com"
+apex_domain = "example.com"
+admin_cidrs = ["203.0.113.10/32"]
+
+# After the first apply, pin the AMI (see the ami_name output):
+# ami_name = "red-k3s-YYYYMMDD-HHMMSS"
