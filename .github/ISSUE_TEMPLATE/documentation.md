@@ -10,11 +10,11 @@ assignees: ""
 
 <!-- Check all that apply -->
 
--   [ ] README improvements
--   [ ] Code comments
--   [ ] Usage examples
--   [ ] Architecture diagrams
--   [ ] Other (please specify below)
+- [ ] README improvements
+- [ ] Code comments
+- [ ] Usage examples
+- [ ] Architecture diagrams
+- [ ] Other (please specify below)
 
 ## Current State
 
@@ -24,8 +24,8 @@ assignees: ""
 
 <!-- Where is the documentation located or where should it be added? -->
 
--   File/Path:
--   Section:
+- File/Path:
+- Section:
 
 ## Suggested Improvement
 

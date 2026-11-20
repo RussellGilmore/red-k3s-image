@@ -73,7 +73,30 @@ Destroy `backend` last, after emptying the bucket (it is versioned).
 
 <!-- prettier-ignore-start -->
 <!-- BEGIN_TF_DOCS -->
+## Inputs
 
+| Name | Description | Type | Default | Required |
+| ---- | ----------- | ---- | ------- | :------: |
+| <a name="input_admin_cidrs"></a> [admin\_cidrs](#input\_admin\_cidrs) | CIDRs allowed to reach the Kubernetes API through the NLB (e.g. ["203.0.113.10/32"]). | `list(string)` | n/a | yes |
+| <a name="input_agent_instance_type"></a> [agent\_instance\_type](#input\_agent\_instance\_type) | Agent instance type (arm64). | `string` | `"t4g.medium"` | no |
+| <a name="input_ami_name"></a> [ami\_name](#input\_ami\_name) | Exact AMI name to deploy. Empty uses the newest red-k3s-* AMI in this account; pin it after the first deploy. | `string` | `""` | no |
+| <a name="input_apex_domain"></a> [apex\_domain](#input\_apex\_domain) | Public Route53 hosted zone the domain lives in (e.g. example.com). | `string` | n/a | yes |
+| <a name="input_app_hostnames"></a> [app\_hostnames](#input\_app\_hostnames) | Extra hostnames to alias to the NLB as apps go live (no wildcard). | `list(string)` | `[]` | no |
+| <a name="input_availability_zones"></a> [availability\_zones](#input\_availability\_zones) | AZs for the cluster: one public subnet and one agent each. The server runs in the first. | `list(string)` | <pre>[<br/>  "us-east-1a",<br/>  "us-east-1b",<br/>  "us-east-1c"<br/>]</pre> | no |
+| <a name="input_cluster_name"></a> [cluster\_name](#input\_cluster\_name) | Name prefix for every cluster resource. | `string` | `"red-k3s"` | no |
+| <a name="input_domain"></a> [domain](#input\_domain) | Kubernetes API hostname (e.g. cluster.example.com). Rendered into the server certificate and aliased to the NLB. | `string` | n/a | yes |
+| <a name="input_region"></a> [region](#input\_region) | AWS region. | `string` | `"us-east-1"` | no |
+| <a name="input_server_instance_type"></a> [server\_instance\_type](#input\_server\_instance\_type) | Server instance type (arm64). | `string` | `"t4g.medium"` | no |
+| <a name="input_vpc_cidr"></a> [vpc\_cidr](#input\_vpc\_cidr) | VPC CIDR. Subnets are /24s carved from it; the server is pinned to .10 in the first. | `string` | `"10.30.0.0/16"` | no |
 
+## Outputs
+
+| Name | Description |
+| ---- | ----------- |
+| <a name="output_agent_instance_ids"></a> [agent\_instance\_ids](#output\_agent\_instance\_ids) | Instance IDs of the agent nodes. |
+| <a name="output_ami_name"></a> [ami\_name](#output\_ami\_name) | AMI the nodes run. Set ami\_name to this to pin it. |
+| <a name="output_get_kubeconfig"></a> [get\_kubeconfig](#output\_get\_kubeconfig) | Command to fetch an admin kubeconfig (run from the repo root). |
+| <a name="output_nlb_dns_name"></a> [nlb\_dns\_name](#output\_nlb\_dns\_name) | DNS name of the network load balancer. |
+| <a name="output_server_instance_id"></a> [server\_instance\_id](#output\_server\_instance\_id) | Instance ID of the server node. |
 <!-- END_TF_DOCS -->
 <!-- prettier-ignore-end -->

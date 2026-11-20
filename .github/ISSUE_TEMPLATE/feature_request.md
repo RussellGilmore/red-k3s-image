@@ -22,8 +22,8 @@ assignees: ""
 
 <!-- Will this feature introduce breaking changes to existing functionality? -->
 
--   [ ] Yes, this is a breaking change
--   [ ] No, this is backward compatible
+- [ ] Yes, this is a breaking change
+- [ ] No, this is backward compatible
 
 <!-- If yes, please describe the breaking changes and migration path -->
 

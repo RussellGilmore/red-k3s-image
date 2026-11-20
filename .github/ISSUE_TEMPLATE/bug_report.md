@@ -12,11 +12,11 @@ assignees: ""
 
 ## Environment
 
--   **Packer Version:** <!-- e.g., 1.14.0 -->
--   **Base OS / AMI:** <!-- e.g., Ubuntu 26.04 arm64 (Resolute) -->
--   **Region:** <!-- e.g., us-east-1 -->
--   **Failure Stage:**
-    <!-- e.g., packer build, first boot / cloud-init, cert issuance, mumble start -->
+- **Packer Version:** <!-- e.g., 1.14.0 -->
+- **Base OS / AMI:** <!-- e.g., Ubuntu 26.04 arm64 (Resolute) -->
+- **Region:** <!-- e.g., us-east-1 -->
+- **Failure Stage:**
+  <!-- e.g., packer build, first boot / cloud-init, cert issuance, mumble start -->
 
 ## Steps to Reproduce
 
