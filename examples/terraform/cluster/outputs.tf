@@ -1,6 +1,6 @@
 output "ami_name" {
   description = "AMI the nodes run. Set ami_name to this to pin it."
-  value       = data.aws_ami.k3s.name
+  value       = local.ami_name
 }
 
 output "server_instance_id" {
@@ -20,5 +20,5 @@ output "nlb_dns_name" {
 
 output "get_kubeconfig" {
   description = "Command to fetch an admin kubeconfig (run from the repo root)."
-  value       = "scripts/get-kubeconfig.sh -n ${var.cluster_name}-server -u https://${var.domain}:6443 -o ~/.kube/${var.cluster_name}.yaml"
+  value       = "scripts/get-kubeconfig.sh -n ${local.server_name} -u ${local.api_url} -o ~/.kube/${var.cluster_name}.yaml"
 }

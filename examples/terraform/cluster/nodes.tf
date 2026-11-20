@@ -6,9 +6,9 @@ module "server" {
   version = "2.5.0"
 
   project_name  = var.cluster_name
-  instance_name = "${var.cluster_name}-server"
+  instance_name = local.server_name
 
-  ami_name      = data.aws_ami.k3s.name
+  ami_name      = local.ami_name
   ami_owner     = "self"
   instance_type = var.server_instance_type
   volume_size   = 50
@@ -84,9 +84,9 @@ module "agents" {
   for_each = local.azs
 
   project_name  = var.cluster_name
-  instance_name = "${var.cluster_name}-agent-${each.key}"
+  instance_name = "${local.agent_prefix}-${each.key}"
 
-  ami_name      = data.aws_ami.k3s.name
+  ami_name      = local.ami_name
   ami_owner     = "self"
   instance_type = var.agent_instance_type
   volume_size   = 50
@@ -145,7 +145,7 @@ module "agents" {
         permissions: "0600"
         content: |
           K3S_ROLE=agent
-          K3S_SERVER_URL=https://${module.server.private_ip}:6443
+          K3S_SERVER_URL=${local.server_url}
           K3S_AGENT_TOKEN_PARAM=${aws_ssm_parameter.agent_token.name}
     runcmd:
       - [ /usr/local/sbin/red-k3s-first-boot.sh ]

@@ -6,7 +6,7 @@ module "nlb" {
   version = "1.0.0"
 
   project_name       = var.cluster_name
-  lb_name            = "${var.cluster_name}-nlb"
+  lb_name            = local.lb_name
   load_balancer_type = "network"
   vpc_id             = module.network.vpc_id
   subnet_ids         = values(module.network.subnet_ids)
@@ -68,5 +68,5 @@ module "nlb" {
   }
 
   apex_domain = var.apex_domain
-  dns_records = concat([var.domain], var.app_hostnames)
+  dns_records = local.dns_records
 }

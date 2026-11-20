@@ -1,11 +1,3 @@
-locals {
-  # Keyed by AZ letter: "a", "b", "c".
-  azs = { for i, az in var.availability_zones : substr(az, -1, 1) => { az = az, index = i } }
-
-  server_az = substr(var.availability_zones[0], -1, 1)
-  server_ip = cidrhost(cidrsubnet(var.vpc_cidr, 8, 0), 10)
-}
-
 # Newest red-k3s AMI built in this account, unless ami_name pins one.
 data "aws_ami" "k3s" {
   most_recent = true
@@ -53,7 +45,7 @@ ephemeral "random_password" "agent_token" {
 }
 
 resource "aws_ssm_parameter" "server_token" {
-  name             = "/${var.cluster_name}/server-token"
+  name             = "${local.token_path}/server-token"
   description      = "k3s server token for ${var.cluster_name}"
   type             = "SecureString"
   value_wo         = ephemeral.random_password.server_token.result
@@ -61,7 +53,7 @@ resource "aws_ssm_parameter" "server_token" {
 }
 
 resource "aws_ssm_parameter" "agent_token" {
-  name             = "/${var.cluster_name}/agent-token"
+  name             = "${local.token_path}/agent-token"
   description      = "k3s agent token for ${var.cluster_name}"
   type             = "SecureString"
   value_wo         = ephemeral.random_password.agent_token.result
