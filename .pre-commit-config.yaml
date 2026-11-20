@@ -6,6 +6,31 @@ repos:
         name: End of File Fixer
       - id: trailing-whitespace
         name: Trailing Whitespace Fixer
+  - repo: https://github.com/antonbabenko/pre-commit-terraform
+    rev: v1.109.2
+    hooks:
+      - id: terraform_fmt
+        name: Terraform Formatter
+        files: ^examples/terraform/.*\.tf$
+      - id: terraform_trivy
+        name: Terraform Trivy Security Scan
+        files: ^examples/terraform/.*\.tf$
+  - repo: https://github.com/terraform-docs/terraform-docs
+    rev: v0.24.0
+    hooks:
+      - id: terraform-docs-go
+        name: Generating Terraform Docs
+        files: ^examples/terraform/cluster/.*\.tf$
+        args:
+          [
+            "markdown",
+            "table",
+            "--show",
+            "inputs,outputs",
+            "--output-file",
+            "../README.md",
+            "examples/terraform/cluster",
+          ]
   - repo: https://github.com/rbubley/mirrors-prettier
     rev: v3.9.9
     hooks:

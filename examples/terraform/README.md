@@ -68,3 +68,12 @@ cd cluster && terraform destroy
 ```
 
 Destroy `backend` last, after emptying the bucket (it is versioned).
+
+## AWS Resources
+
+<!-- prettier-ignore-start -->
+<!-- BEGIN_TF_DOCS -->
+
+
+<!-- END_TF_DOCS -->
+<!-- prettier-ignore-end -->
