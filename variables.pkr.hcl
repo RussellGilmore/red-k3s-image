@@ -16,10 +16,16 @@ variable "ami_name_prefix" {
   default     = "red-k3s"
 }
 
+variable "image_version" {
+  type        = string
+  description = "Release version recorded on the AMI (ImageVersion tag). CI sets it from the git tag; local builds default to \"dev\"."
+  default     = "dev"
+}
+
 variable "k3s_version" {
   type        = string
   description = "K3s version to install on the AMI."
-  default     = "v1.37.0+k3s1"
+  default     = "v1.37.2+k3s1"
 }
 
 variable "source_ami_owner" {
@@ -58,7 +64,7 @@ variable "subnet_id" {
 
 variable "iam_instance_profile" {
   type        = string
-  description = "IAM instance profile attached to the build instance. Must include AmazonSSMManagedInstanceCore. Created in red-infra as PackerBuildRole."
+  description = "IAM instance profile attached to the build instance. Must include AmazonSSMManagedInstanceCore (see Build IAM in the README)."
 }
 
 variable "associate_public_ip_address" {
@@ -70,11 +76,11 @@ variable "associate_public_ip_address" {
 variable "helm_version" {
   type        = string
   description = "Helm version to install on the AMI."
-  default     = "v4.3.0"
+  default     = "v4.3.2"
 }
 
 variable "aws_cli_version" {
   type        = string
   description = "AWS CLI v2 version to install on the AMI."
-  default     = "2.37.2"
+  default     = "2.38.4"
 }
