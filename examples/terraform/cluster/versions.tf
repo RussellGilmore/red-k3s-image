@@ -12,7 +12,13 @@ terraform {
     }
   }
 
-  # Partial configuration: values come from backend.hcl at init.
+  # Remote state in the red-backend bucket. Values come from backend.hcl:
+  #   terraform init -backend-config=backend.hcl
+  #
+  # To use local state instead, comment out this block and run a plain
+  # `terraform init`. The ../backend root is then not needed. To move to the
+  # remote backend later, restore the block and run:
+  #   terraform init -backend-config=backend.hcl -migrate-state
   backend "s3" {}
 }
 

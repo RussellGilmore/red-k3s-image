@@ -52,6 +52,9 @@ Set `admin_cidrs = ["<that IP>/32"]`. When your IP changes, update it and
     terraform apply
     ```
 
+    For local state, comment out the `backend "s3" {}` block in `versions.tf`,
+    skip step 1, and run `terraform init` without `-backend-config`.
+
 3. **Pin the AMI.** Set `ami_name` to the `ami_name` output. Unpinned, a newer
    `red-k3s-*` AMI replaces every node on the next apply (a new cluster).
 
