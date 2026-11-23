@@ -33,7 +33,7 @@ source "amazon-ebs" "k3s" {
 
   source_ami      = data.amazon-ami.ubuntu_resolute_arm64.id
   ami_name        = local.ami_name
-  ami_description = "K3s ${var.k3s_version} server/agent image on Ubuntu ${local.ubuntu_release} ${local.architecture}"
+  ami_description = "red-k3s ${var.image_version}: K3s ${var.k3s_version} server/agent image on Ubuntu ${local.ubuntu_release} ${local.architecture}"
 
   launch_block_device_mappings {
     device_name           = "/dev/sda1"
@@ -52,6 +52,7 @@ source "amazon-ebs" "k3s" {
 
   tags = merge({
     Name          = local.ami_name
+    ImageVersion  = var.image_version
     OS            = "ubuntu-${local.ubuntu_release}"
     Architecture  = local.architecture
     K3sVersion    = var.k3s_version
@@ -71,8 +72,9 @@ source "amazon-ebs" "k3s" {
   }
 
   snapshot_tags = {
-    Name       = local.ami_name
-    K3sVersion = var.k3s_version
+    Name         = local.ami_name
+    ImageVersion = var.image_version
+    K3sVersion   = var.k3s_version
   }
 }
 
