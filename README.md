@@ -90,6 +90,26 @@ Cloud-init writes `/etc/red-k3s/first-boot.env` and runs
 Progress is logged to `/var/log/red-k3s-first-boot.log`; completion is marked by
 `/var/lib/red-k3s/first-boot.done`.
 
+## OS updates and reboots
+
+Nodes install updates with unattended-upgrades and reboot automatically at 07:00
+UTC when an update requires it. Every node uses the same window, so an update
+that needs a reboot restarts the whole cluster at once. Workloads are
+unavailable until the nodes return; the server comes back at its pinned IP and
+agents reconnect on their own.
+
+To change the window or turn reboots off, override the baked setting from
+user-data. A different time per node staggers the reboots:
+
+```yaml
+write_files:
+    - path: /etc/apt/apt.conf.d/52-red-k3s-unattended
+      content: |
+          Unattended-Upgrade::Automatic-Reboot "true";
+          Unattended-Upgrade::Automatic-Reboot-WithUsers "true";
+          Unattended-Upgrade::Automatic-Reboot-Time "07:30";
+```
+
 ## Build
 
 Requires Packer >= 1.14.0, AWS credentials, a build subnet with outbound
