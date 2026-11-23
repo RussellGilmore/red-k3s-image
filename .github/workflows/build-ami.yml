@@ -31,6 +31,7 @@ jobs:
             -var "vpc_id=${{ secrets.PACKER_VPC_ID }}" \
             -var "subnet_id=${{ secrets.PACKER_SUBNET_ID }}" \
             -var "iam_instance_profile=PackerBuildRole" \
+            -var "image_version=${{ github.ref_name }}" \
             .
       - name: Packer Build
         run: |
@@ -39,4 +40,5 @@ jobs:
             -var "vpc_id=${{ secrets.PACKER_VPC_ID }}" \
             -var "subnet_id=${{ secrets.PACKER_SUBNET_ID }}" \
             -var "iam_instance_profile=PackerBuildRole" \
+            -var "image_version=${{ github.ref_name }}" \
             .
